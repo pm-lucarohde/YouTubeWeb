@@ -1,5 +1,11 @@
 bin/
 obj/
-/packages/
-riderModule.iml
-/_ReSharper.Caches/
+appsettings.*.local.json
+
+# Der API-Key gehört nicht ins Repo — nutze dotnet user-secrets oder YOUTUBE_API_KEY.
+
+# Bauergebnis von bauen.sh — 20 MB Binärdatei plus Symbole.
+nativ/
+
+# Lokale Claude-Code-Einstellungen
+.claude/settings.local.json

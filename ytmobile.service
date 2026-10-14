@@ -1,0 +1,36 @@
+# YtMobile als Benutzerdienst. Liegt bewusst hier im Projekt und nicht in
+# ~/.config/systemd/user/: `systemctl --user enable` nimmt einen absoluten Pfad und legt
+# die Verknüpfung selbst an. So bleibt der Dienst im Versionsstand neben run.sh und
+# bauen.sh, statt als lose Kopie daneben zu leben.
+#
+# Einmalig einrichten:
+#   systemctl --user enable --now ~/Website/ytmobile.service
+
+[Unit]
+Description=YtMobile — die eigene YouTube-Oberfläche
+Documentation=file:%h/Website/README.md
+# Kein network-online.target: Das ist ein System-Ziel, im Benutzer-Manager gibt es
+# nichts, worauf das warten könnte. Beim Anmelden steht das Netz ohnehin.
+#
+# Ist noch nie gebaut worden, sagt das Journal damit, was fehlt, statt eines nackten
+# „No such file or directory" aus dem Start heraus.
+AssertFileIsExecutable=%h/Website/nativ/YtMobile
+
+[Service]
+# Der Inhaltsstamm ist das Arbeitsverzeichnis — von außen gestartet findet die App ihr
+# wwwroot nicht.
+WorkingDirectory=%h/Website/nativ
+ExecStart=%h/Website/nativ/YtMobile
+
+# 0.0.0.0 hält die Seite auch vom Handy im gleichen WLAN erreichbar.
+Environment=ASPNETCORE_URLS=https://0.0.0.0:5099
+# Muss Development sein: sonst werden die User-Secrets mit API-Key und OAuth-Zugangsdaten
+# gar nicht erst geladen.
+Environment=ASPNETCORE_ENVIRONMENT=Development
+
+Restart=on-failure
+RestartSec=2
+SyslogIdentifier=ytmobile
+
+[Install]
+WantedBy=default.target

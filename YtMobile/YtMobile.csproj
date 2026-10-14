@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>ytmobile-local-dev</UserSecretsId>
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- Vorab übersetzt statt zur Laufzeit. PublishAot gehört in die Projektdatei und
+         nicht auf die Kommandozeile: Es steuert auch die Analyse beim normalen Bauen. -->
+    <PublishAot>true</PublishAot>
+
+    <!-- Das eigentlich Wichtige. IsAotCompatible schaltet Trim-, SingleFile- und
+         AOT-Analysator schon beim gewöhnlichen `dotnet build` ein — jede Zeile, die AOT
+         bricht, meldet sich damit sofort statt erst beim Veröffentlichen. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+</Project>

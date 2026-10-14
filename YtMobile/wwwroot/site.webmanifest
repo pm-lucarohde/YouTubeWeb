@@ -1,0 +1,11 @@
+{
+  "name": "YouTube",
+  "short_name": "YouTube",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#151e2c",
+  "theme_color": "#151e2c",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

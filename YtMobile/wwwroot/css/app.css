@@ -1,0 +1,739 @@
+/* ------------------------------------------------------------------
+   YouTube — leichtgewichtige Oberfläche
+   Dunkles Navy-Fundament und Typografie nach hytale.com, Akzentfarbe und
+   Chip-Muster nach YouTube. Layout nutzt die volle Bildschirmbreite.
+   ------------------------------------------------------------------ */
+
+:root {
+  color-scheme: dark;
+
+  --bg:            #151e2c;
+  --bg-elevated:   #162039;
+  --bg-deep:       #10161e;
+  --panel:         rgb(210 233 247 / 4%);
+  --panel-hover:   rgb(210 233 247 / 8%);
+  --hairline:      rgb(54 69 92 / 55%);
+
+  --accent:        #ff0000;  /* Logorot, nur für Flächen */
+  --accent-light:  #ff5252;  /* aufgehellt, damit kleiner Text lesbar bleibt */
+  --accent-dim:    #6b2630;
+
+  --text:          #b7cedd;
+  --text-strong:   #e9f3fa;
+  --text-muted:    #9eb2c0;
+
+  --font-display: "Lexend", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Nunito Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --r-sm: .375rem;
+  --r-md: .625rem;
+  --r-lg: 1rem;
+
+  --appbar-h: 3.5rem;
+  --tabbar-h: 3.75rem;
+  --gutter: 1rem;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Eigene display-Regeln — etwa das Raster der Kommentare — schlagen sonst die
+   Vorgabe des Browsers für [hidden], und Verstecktes bliebe sichtbar. */
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  overflow-wrap: break-word;
+}
+
+/* Die beiden Verläufe stehen still, während der Inhalt an ihnen vorbeirollt. Als
+   `background-attachment: fixed` am body heißt das für Chromium: das ganze Sichtfeld
+   in jedem Rollbild neu zeichnen. Gemessen auf 2560x1331 bei 164 Hz brauchte damit
+   fast jedes dritte Bild 12,2 ms statt 6,1 — also glatt ein ausgelassenes Bild:
+
+     mit `fixed`   306 von 1016 Bildern zu spät, p95 12,20 ms
+     ohne          0 von 1320 Bildern zu spät, p95  6,20 ms
+
+   Als eigene, fest positionierte Ebene sieht der Verlauf identisch aus — er deckt
+   dasselbe Sichtfeld ab, und die Prozentangaben beziehen sich hier wie dort darauf —
+   wird beim Rollen aber nur noch übereinandergelegt statt neu gezeichnet.
+
+   `z-index: -1` trägt, weil der body-Block keinen eigenen Stapelkontext aufmacht:
+   kein `opacity`, `filter`, `transform` oder `isolation`. Kommt dort je eines dazu,
+   verschwindet der Verlauf hinter der Seite. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(58rem 32rem at 10% -8%, rgb(255 0 0 / 7%), transparent 60%),
+    radial-gradient(46rem 30rem at 92% 4%, rgb(89 138 195 / 9%), transparent 62%);
+}
+
+img { display: block; max-width: 100%; }
+button, input { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+
+:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.skip {
+  position: fixed; inset-inline-start: -100vw; top: .5rem; z-index: 100;
+  padding: .625rem 1rem; border-radius: var(--r-md);
+  background: var(--accent); color: #fff; font-weight: 700;
+}
+.skip:focus { inset-inline-start: .5rem; }
+
+/* ---------- app bar ---------- */
+
+.appbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 1rem;
+  height: var(--appbar-h);
+  padding-inline: var(--gutter);
+  background: rgb(21 30 44 / 82%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.brand { display: flex; align-items: center; flex: none; }
+/* Offizieller YouTube-Lockup, Seitenverhältnis 90:20. */
+.brand__logo { height: 1.375rem; width: auto; }
+
+.search {
+  flex: 1 1 auto; min-width: 0; max-width: 40rem;
+  display: flex; align-items: center; gap: .5rem;
+  height: 2.375rem; padding-inline: .75rem;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  transition: border-color .18s, background-color .18s;
+}
+.search:focus-within { border-color: var(--accent-dim); background: var(--panel-hover); }
+.search__icon { width: 1.125rem; height: 1.125rem; flex: none; fill: var(--text-muted); }
+.search input {
+  flex: 1 1 auto; min-width: 0;
+  background: none; border: 0; outline: none; font-size: .9375rem;
+}
+.search input::placeholder { color: var(--text-muted); }
+.search input::-webkit-search-cancel-button { display: none; }
+.search__clear {
+  flex: none; border: 0; background: none; cursor: pointer;
+  font-size: 1.25rem; line-height: 1; color: var(--text-muted); padding: 0 .125rem;
+}
+
+/* ---------- layout ---------- */
+
+.main {
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 1.5rem);
+  outline: none;
+}
+
+.section__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem; padding: 1.25rem var(--gutter) .75rem;
+}
+
+.eyebrow {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: .6875rem; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent-light); margin: 0;
+}
+
+.section__title {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.375rem;
+  line-height: 1.2; letter-spacing: -.01em; color: var(--text-strong); margin: .25rem 0 0;
+}
+
+/* ---------- category chips ---------- */
+
+.chips {
+  display: flex; gap: .5rem; overflow-x: auto;
+  padding: .25rem var(--gutter) .875rem;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.chips::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex: none; scroll-snap-align: start;
+  padding: .4375rem .875rem; border-radius: 999px;
+  border: 1px solid var(--hairline); background: var(--panel);
+  font-family: var(--font-display); font-weight: 500; font-size: .8125rem;
+  color: var(--text); white-space: nowrap; cursor: pointer;
+  transition: color .18s, background-color .18s, border-color .18s;
+}
+.chip:hover { background: var(--panel-hover); }
+/* Wie bei YouTube: aktiver Chip hell statt farbig — bester Kontrast. */
+.chip[aria-pressed="true"] {
+  background: #f1f1f1; border-color: transparent; color: var(--bg-deep); font-weight: 600;
+}
+
+/* ---------- video cards ---------- */
+
+.feed {
+  display: grid; gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  padding: .25rem var(--gutter) 0;
+  list-style: none; margin: 0;
+}
+
+/* auto-fill füllt breite Monitore sonst mit acht und mehr Spalten, die Karten
+   werden dabei winzig. Ab 92rem sind es feste fünf Spalten — genau die Zahl, die
+   auto-fill an dieser Schwelle ohnehin ergibt, der Übergang ist also nahtlos.
+   Die Karten wachsen von da an mit der Fensterbreite. Die Seitenspalte der
+   Watch-Ansicht ist über :not() ausgenommen, sie bleibt einspaltig. */
+@media (min-width: 92rem) {
+  .feed:not(.feed--rail) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+.card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 17rem;
+}
+
+.card__link { display: block; }
+
+.card__media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: #1d3150;
+  border: 1px solid var(--hairline);
+}
+
+.card__img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform .35s ease, opacity .3s ease;
+}
+.card__img[data-loading] { opacity: 0; }
+@media (hover: hover) {
+  .card__link:hover .card__img { transform: scale(1.035); }
+}
+
+/* Vorschau beim Hovern.
+
+   Es gibt genau *einen* Player für die ganze Seite. Er hängt am <body>, wird nie
+   umgehängt, nie entfernt und nach dem ersten Laden auch nie wieder auf eine neue
+   Adresse geschickt; das Video wechselt über den Befehlskanal der IFrame-Player-API.
+   Über die Karte kommt er allein über left/top/width/height.
+
+   Der Grund ist gemessen, per XFixes direkt am X-Server: Jedes Mal, wenn ein iframe
+   ein Dokument festschreibt, setzt Chromium die Zeigerform zurück — die Hand springt
+   für rund 350 ms auf den Pfeil und dann von allein zurück. Das gilt unabhängig
+   davon, wo der Rahmen liegt: Auch unsichtbar in der gegenüberliegenden Ecke des
+   Bildschirms löst er das aus. `pointer-events: none` hilft nicht, ein Element
+   darüber auch nicht, `visibility: hidden` auch nicht. Ein <div> oder ein
+   about:blank-Rahmen an derselben Stelle flackert dagegen nicht — es ist wirklich
+   das Festschreiben des Dokuments. Umhängen im DOM lädt den Rahmen neu und ist
+   damit genauso betroffen. Also darf während des Hoverns überhaupt kein Dokument
+   mehr geladen werden.
+
+   Vorgeladen und geparkt wird abseits des Zeigers, unsichtbar über `opacity: 0`,
+   aber innerhalb des Sichtfelds: Außerhalb drosselt Chromium fremde Rahmen auf etwa
+   ein Bild pro Sekunde (gemessen 1 statt 90 in anderthalb Sekunden), der Player käme
+   dort gar nicht erst hoch.
+
+   `pointer-events: none` bleibt trotzdem nötig, sonst läge der Zeiger über dem
+   iframe, die Karte bekäme ein pointerout und der Klick auf die Karte ginge
+   verloren. Und `z-index` bleibt unter dem der Kopf- und Fußleiste (40), damit die
+   Vorschau beim Rollen nicht darüber wandert. */
+.preview {
+  position: fixed; left: 0; top: 0; width: 0; height: 0;
+  z-index: 30;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  /* Der Übergang gilt nur beim Einblenden. Beim Abräumen wandert der Rahmen im
+     selben Zug in die Parkecke — ein Ausblenden würde diesen Sprung zeigen. */
+}
+.preview.is-ready { opacity: 1; transition: opacity .25s ease; }
+
+/* Titelzeile und Branding zeichnet der Player an den oberen und unteren Rand seines
+   eigenen Rahmens. Der Rahmen ragt deshalb oben und unten je 96px über die Karte
+   hinaus, `overflow: hidden` am Rahmenhalter schneidet beides ab. Das Video bleibt
+   dabei unbeschnitten: Im höheren Rahmen rechnet der Player es auf die Breite und
+   zentriert es senkrecht — es landet exakt im sichtbaren Ausschnitt. Ein Zoom auf
+   das Bild wäre die Alternative gewesen, der hätte aber Rand abgeschnitten. */
+.preview__frame {
+  position: absolute; left: 0; width: 100%;
+  top: -96px; height: calc(100% + 192px);
+  border: 0;
+}
+
+.card__badge {
+  /* Über dem Standbild; die Vorschau liegt als eigene Ebene darüber und verdeckt
+     die Marke ohnehin, deshalb blendet sie mit dem Einblenden aus. */
+  position: absolute; right: .5rem; bottom: .5rem; z-index: 3;
+  transition: opacity .25s ease;
+  padding: .125rem .375rem; border-radius: var(--r-sm);
+  background: rgb(16 22 30 / 88%);
+  font-family: var(--font-display); font-weight: 500;
+  font-size: .75rem; line-height: 1.4; color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.card__badge--live { background: var(--accent); }
+.is-ready .card__badge { opacity: 0; }
+
+.card__body { padding: .6875rem .125rem 0; }
+
+.card__title {
+  font-family: var(--font-display); font-weight: 600; font-size: .9688rem;
+  line-height: 1.35; letter-spacing: -.005em; color: var(--text-strong);
+  margin: 0 0 .3125rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card__meta { font-size: .8125rem; color: var(--text-muted); margin: 0; }
+.card__channel { color: var(--text); }
+.card__meta .dot { padding-inline: .375rem; opacity: .5; }
+
+/* Kompakte Variante für die Seitenspalte neben dem Player. */
+/* Die Seitenspalte stapelt wie der Hauptfeed: Das Thumbnail nimmt die volle
+   Spaltenbreite ein statt nur eine schmale Vorschau links neben dem Titel. */
+.feed--rail { grid-template-columns: minmax(0, 1fr); gap: 1rem; padding-inline: 0; }
+.feed--rail .card { contain-intrinsic-size: auto 15rem; }
+.feed--rail .card__media { border-radius: var(--r-md); }
+.feed--rail .card__body { padding: .5rem .125rem 0; }
+.feed--rail .card__title { font-size: .9375rem; -webkit-line-clamp: 2; margin-bottom: .25rem; }
+.feed--rail .card__meta { font-size: .8125rem; }
+
+/* ---------- watch view ---------- */
+
+.watch-layout {
+  display: grid; gap: 1.5rem;
+  /* minmax(0, 1fr) statt der impliziten auto-Spalte, und min-width: 0 an den Kindern:
+     Ein Rasterkind ist von Haus aus mindestens so breit wie sein Inhalt, und mit
+     `content-visibility: auto` ist dessen Mindestbreite die zuletzt gerenderte — also
+     eine von einem breiteren Fenster. Beim Schmalerziehen behielt die Seitenspalte
+     dadurch ihre alten 28rem und schob sich aus dem Bild. Gemessen, siehe README. */
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 var(--gutter);
+  align-items: start;
+}
+.watch-layout > * { min-width: 0; }
+
+.player {
+  aspect-ratio: 16 / 9;
+  /* Höhe deckeln, damit Titel und Kommentare nicht unter die Falz rutschen.
+     Die Breite folgt daraus über 16:9, statt das Seitenverhältnis zu brechen. */
+  width: min(100%, calc((100dvh - 11rem) * 16 / 9));
+  margin-inline: auto;
+  background: #000;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+}
+/* color-scheme bleibt gesetzt, kostet nichts — in das fremde Player-Dokument wirkt
+   es allerdings nicht hinein, dessen Einstellungsblatt ist fest hell. */
+.player iframe { width: 100%; height: 100%; border: 0; display: block; color-scheme: dark; }
+
+.watch__title {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.25rem;
+  line-height: 1.3; letter-spacing: -.01em; color: var(--text-strong); margin: 1rem 0 .5rem;
+}
+
+.watch__meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .375rem;
+  font-size: .8125rem; color: var(--text-muted); margin: 0 0 1rem;
+}
+
+.watch__channel {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .875rem 1rem; margin-bottom: 1rem;
+  background: var(--panel); border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+}
+.watch__channel-name {
+  font-family: var(--font-display); font-weight: 600; font-size: .9375rem;
+  color: var(--text-strong);
+}
+
+.desc {
+  background: var(--panel); border: 1px solid var(--hairline);
+  border-radius: var(--r-lg); padding: .875rem 1rem; margin-bottom: 1.5rem;
+}
+.desc summary {
+  cursor: pointer; list-style: none;
+  font-family: var(--font-display); font-weight: 600; font-size: .8125rem;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--accent-light);
+}
+.desc summary::-webkit-details-marker { display: none; }
+.desc summary::after { content: " ▾"; }
+.desc[open] summary::after { content: " ▴"; }
+.desc__text {
+  margin: .75rem 0 0; font-size: .875rem; line-height: 1.65;
+  white-space: pre-wrap; color: var(--text);
+}
+.desc__text a { color: #3ea6ff; text-decoration: underline; }
+
+/* ---------- shorts ---------- */
+
+/* Die Zeile lebt als <li> im Feed-Grid und überspannt alle Spalten — dadurch
+   sitzt sie unabhängig von der aktuellen Spaltenzahl immer auf einer eigenen
+   Reihe, ohne dass das Skript wissen muss, wie breit das Fenster gerade ist. */
+.shorts {
+  grid-column: 1 / -1;
+  margin-block: .75rem;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32rem;
+}
+
+.shorts__head {
+  display: flex; align-items: center; gap: .5rem;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.0625rem;
+  color: var(--text-strong); margin: 0 0 1rem;
+}
+.shorts__head svg { width: 1.25rem; height: 1.25rem; fill: var(--accent-light); flex: none; }
+
+.shorts__row {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+}
+/* Sieben Shorts pro Zeile, sobald der Feed auf seine fünf Spalten festgenagelt ist.
+   Die schmaleren Hochkant-Karten passen dort gut in die Breite von fünf Querformaten. */
+@media (min-width: 92rem) {
+  .shorts__row { grid-template-columns: repeat(7, 1fr); gap: 1rem; }
+}
+
+.short__link { display: block; }
+.short__media {
+  position: relative; aspect-ratio: 9 / 16;
+  border-radius: var(--r-lg); overflow: hidden;
+  background: var(--panel); border: 1px solid var(--hairline);
+}
+.short__img { width: 100%; height: 100%; object-fit: cover; }
+.short__title {
+  font-family: var(--font-display); font-weight: 600; font-size: .9375rem;
+  line-height: 1.35; color: var(--text-strong); margin: .625rem 0 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.short__meta { font-size: .8125rem; color: var(--text-muted); margin: .25rem 0 0; }
+
+/* ---------- comments ---------- */
+
+.comments__head {
+  display: flex; align-items: baseline; gap: .75rem; margin-bottom: 1.25rem;
+}
+.comments__count {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.0625rem;
+  color: var(--text-strong); margin: 0;
+}
+
+.comments {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 1.25rem;
+  /* Ohne Spaltenangabe säße alles in einer impliziten auto-Spalte, die sich nach der
+     Mindestbreite der Kommentare richtet — und die ist mit `content-visibility: auto`
+     die zuletzt gerenderte. Siehe .watch-layout. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.comment {
+  display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: .75rem;
+  content-visibility: auto; contain-intrinsic-size: auto 4rem;
+}
+.comment__avatar {
+  width: 2.25rem; height: 2.25rem; border-radius: 50%;
+  background: var(--panel); object-fit: cover;
+}
+.comment__head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin-bottom: .25rem;
+}
+.comment__author {
+  font-family: var(--font-display); font-weight: 600; font-size: .875rem;
+  color: var(--text-strong);
+}
+.comment__age { font-size: .8125rem; color: var(--text-muted); }
+.comment__text {
+  margin: 0; font-size: .9375rem; line-height: 1.65; color: var(--text-strong);
+  white-space: pre-wrap;
+}
+.comment__foot {
+  display: flex; align-items: center; gap: 1rem;
+  margin-top: .5rem; font-size: .8125rem; color: var(--text-muted);
+}
+.comment__foot svg { width: .875rem; height: .875rem; fill: currentColor; vertical-align: -.125rem; }
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .625rem 1.125rem; border-radius: 999px; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: .875rem;
+  border: 1px solid var(--hairline); background: var(--panel); color: var(--text-strong);
+  transition: background-color .18s, border-color .18s, transform .12s;
+}
+.btn:hover { background: var(--panel-hover); }
+.btn:active { transform: translateY(1px); }
+
+.btn--accent {
+  background: var(--accent); border-color: transparent; color: #fff;
+  box-shadow: 0 4px 18px rgb(255 0 0 / 22%);
+}
+.btn--accent:hover { filter: brightness(1.1); background: var(--accent); }
+
+.more { display: flex; justify-content: center; padding: 1.5rem var(--gutter) 0; }
+.feed--rail + .more, .comments + .more { padding-inline: 0; }
+
+/* ---------- states ---------- */
+
+.state {
+  padding: 3rem var(--gutter); text-align: center; max-width: 32rem; margin-inline: auto;
+}
+.state__title {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.125rem;
+  color: var(--text-strong); margin: 0 0 .5rem;
+}
+.state__text { font-size: .9375rem; color: var(--text-muted); margin: 0 0 1.25rem; }
+.state code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem;
+  background: var(--bg-deep); border: 1px solid var(--hairline);
+  border-radius: var(--r-sm); padding: .125rem .375rem; color: var(--accent-light);
+}
+.state pre {
+  text-align: left; overflow-x: auto; background: var(--bg-deep);
+  border: 1px solid var(--hairline); border-radius: var(--r-md);
+  padding: .875rem 1rem; font-size: .8125rem; color: var(--text);
+}
+.state ol { text-align: left; padding-left: 1.25rem; font-size: .9375rem; line-height: 1.9; }
+.state--inline { padding: 1.5rem 0; text-align: left; margin-inline: 0; }
+
+.skeleton {
+  padding: .25rem var(--gutter) 0; display: grid; gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+}
+.skeleton__card > * {
+  border-radius: var(--r-lg);
+  background: linear-gradient(100deg, #1d3150 30%, #26406a 50%, #1d3150 70%) 0 0 / 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.skeleton__media { aspect-ratio: 16 / 9; }
+.skeleton__line { height: .75rem; margin-top: .75rem; border-radius: var(--r-sm) !important; }
+.skeleton__line--short { width: 55%; }
+
+@keyframes shimmer { to { background-position: -300% 0; } }
+
+/* ---------- bottom tab bar ---------- */
+
+.tabbar {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  height: calc(var(--tabbar-h) + var(--safe-b));
+  padding-bottom: var(--safe-b);
+  background: rgb(16 22 30 / 92%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-top: 1px solid var(--hairline);
+}
+
+.tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .1875rem; color: var(--text-muted);
+  font-family: var(--font-display); font-weight: 500; font-size: .6875rem;
+  letter-spacing: .02em;
+  transition: color .18s;
+  position: relative;
+}
+.tab svg { width: 1.375rem; height: 1.375rem; fill: currentColor; }
+.tab[aria-current="page"] { color: var(--accent-light); }
+.tab[aria-current="page"]::before {
+  content: ""; position: absolute; top: 0; width: 2rem; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+/* ---------- breite Schirme: volle Breite, Player mit Seitenspalte ---------- */
+
+@media (min-width: 40rem) {
+  :root { --gutter: 1.5rem; }
+}
+
+@media (min-width: 64rem) {
+  :root { --gutter: 2rem; }
+
+  .watch-layout {
+    grid-template-columns: minmax(0, 1fr) 24rem;
+    /* Die Seitenspalte überspannt beide Zeilen und ist meist höher als Player +
+       Inhalt. Ohne feste Zeilenhöhen verteilt Grid diesen Überschuss auf beide
+       Zeilen und reißt eine Lücke unter den Player. auto/1fr schiebt den
+       gesamten Rest in Zeile 2. */
+    grid-template-rows: auto 1fr;
+    column-gap: 2rem;
+  }
+  /* Titel, Beschreibung und Kommentare stehen unter dem Player in Spalte 1. */
+  .watch-layout > .watch__main { grid-column: 1; }
+  .watch-layout > .watch__rail { grid-column: 2; grid-row: 1 / span 2; }
+
+  /* Ab Desktop-Breite wandert die Navigation in die Kopfzeile — die schwebende
+     Pille lag sonst mitten im Inhalt. Der Platz dafür wird rechts reserviert. */
+  .appbar { padding-inline-end: 17rem; }
+  .search { max-width: 34rem; }
+
+  .tabbar {
+    inset-inline: auto; right: var(--gutter); left: auto; transform: none;
+    top: 0; bottom: auto;
+    width: auto; height: var(--appbar-h);
+    grid-auto-columns: auto; gap: .375rem;
+    padding-bottom: 0; z-index: 41;
+    background: none; backdrop-filter: none; border: 0;
+    place-items: center;
+  }
+  .tab {
+    flex-direction: row; gap: .5rem;
+    padding: .5rem .875rem; border-radius: 999px;
+    font-size: .8125rem;
+  }
+  .tab:hover { background: var(--panel-hover); }
+  .tab[aria-current="page"] { background: var(--panel); }
+  .tab[aria-current="page"]::before { display: none; }
+
+  .main { padding-bottom: 3rem; }
+}
+
+@media (min-width: 100rem) {
+  .watch-layout { grid-template-columns: minmax(0, 1fr) 28rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ---------- konto ---------- */
+
+.account { flex: none; position: relative; display: flex; align-items: center; }
+
+.account__login { padding: .5rem .875rem; font-size: .8125rem; }
+
+.account__button {
+  display: flex; padding: 0; border: 0; background: none; cursor: pointer;
+  border-radius: 999px;
+}
+.account__button:focus-visible { outline: 2px solid var(--accent-light); outline-offset: 2px; }
+
+.account__avatar {
+  width: 2rem; height: 2rem; border-radius: 999px; object-fit: cover;
+  border: 1px solid var(--hairline); background: var(--panel);
+}
+.account__avatar--blank {
+  display: grid; place-content: center;
+  font-family: var(--font-display); font-weight: 700; font-size: .875rem;
+  color: var(--text-strong);
+}
+
+.account__menu {
+  /* Hängt direkt unter dem Profilbild, rechte Kanten bündig. */
+  position: absolute; top: calc(100% + .375rem); right: 0; z-index: 50;
+  min-width: 11rem; max-width: min(16rem, calc(100vw - 2rem)); padding: .375rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+.account__name {
+  margin: 0; padding: .4375rem .625rem .625rem;
+  font-family: var(--font-display); font-weight: 600; font-size: .875rem;
+  color: var(--text-strong); overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Menüeintrag, kein Knopf: linksbündig, volle Breite, ohne Pillenform. */
+.account__item {
+  display: block; width: 100%; margin-top: .375rem;
+  padding: .5rem .625rem; text-align: left;
+  border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
+  font-family: var(--font-body); font-size: .875rem; color: var(--text);
+}
+.account__item:hover { background: var(--panel-hover); color: var(--text-strong); }
+
+/* ---------- banner ---------- */
+
+.banner {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .75rem var(--gutter);
+  background: var(--accent-dim);
+  border-bottom: 1px solid var(--hairline);
+}
+.banner__text { margin: 0; flex: 1; font-size: .875rem; color: var(--text-strong); }
+.banner__close {
+  flex: none; border: 0; background: none; cursor: pointer;
+  font-size: 1.25rem; line-height: 1; color: var(--text-strong); padding: 0 .25rem;
+}
+
+/* ---------- bewerten & abonnieren ---------- */
+
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+
+.action {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .5rem 1rem; border-radius: 999px; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: .8125rem;
+  border: 1px solid var(--hairline); background: var(--panel); color: var(--text-strong);
+  transition: background-color .18s, border-color .18s, color .18s;
+}
+.action:hover { background: var(--panel-hover); }
+.action svg { width: 1rem; height: 1rem; fill: currentColor; flex: none; }
+
+.action[aria-pressed="true"] { border-color: var(--accent-light); color: var(--accent-light); }
+
+/* Abonniert ist der ruhigere Zustand — der Knopf lädt dann nicht mehr zum Klick ein. */
+.action--sub { background: #f1f1f1; border-color: transparent; color: var(--bg-deep); }
+.action--sub:hover { background: #fff; }
+.action--on, .action--on:hover { background: var(--panel); color: var(--text-muted); border-color: var(--hairline); }
+
+/* ---------- kommentieren ---------- */
+
+.composer { display: grid; gap: .625rem; margin: 0 0 1.5rem; }
+
+.composer__field {
+  width: 100%; min-height: 2.5rem; resize: none; overflow: hidden;
+  padding: .625rem .875rem;
+  font-family: var(--font-body); font-size: .9375rem; line-height: 1.5;
+  color: var(--text-strong); background: var(--panel);
+  border: 1px solid var(--hairline); border-radius: var(--r-md);
+}
+.composer__field::placeholder { color: var(--text-muted); }
+.composer__field:focus { outline: none; border-color: var(--accent-dim); background: var(--panel-hover); }
+
+.composer__foot { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.composer__note { margin: 0; font-size: .8125rem; color: var(--accent-light); }
+
+.link-btn {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: .8125rem;
+  color: var(--text-muted);
+}
+.link-btn:hover { color: var(--text-strong); }
+.link-btn:disabled { cursor: default; opacity: .6; }
+
+.comments--replies { margin-top: 1rem; padding-left: .5rem; border-left: 1px solid var(--hairline); }
+.comments--replies:empty { display: none; }
+
+/* Eigene Kommentare bekommen eine ruhige Markierung, damit man sie wiederfindet. */
+.comment--own > .comment__body > .comment__head .comment__author { color: var(--accent-light); }
+
+/* ---------- eigene Kommentare, Autoren-Link ---------- */
+
+.comment__link { color: inherit; text-decoration: none; display: block; }
+/* Der Bild-Link steht in der Rasterspalte und soll nicht über die ganze Zeile wachsen. */
+.comment > .comment__link { align-self: start; }
+.comment__link:hover .comment__author { color: var(--text-strong); }
+.comment__link:hover .comment__avatar { filter: brightness(1.1); }
+
+.comment__foot .link-btn--danger { color: var(--accent-light); }
